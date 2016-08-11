@@ -213,9 +213,9 @@ class PsmqttApp(object):
         return parts if len(parts) == 2 else [parts[0], '']
 
     def run(self):
-        print('psmqtt using config: %s' % self.CONFIG)
-        print('you can set the configuration '
-              'with environment variable "PSMQTTCONFIG"')
+        logging.info('psmqtt using config: %s', self.CONFIG)
+        logging.info('you can set the configuration '
+                     'with environment variable "PSMQTTCONFIG"')
 
         clientid = self.cf.get('mqtt_clientid', 'psmqtt-%s' % os.getpid())
 
