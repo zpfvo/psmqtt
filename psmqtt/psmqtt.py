@@ -126,6 +126,9 @@ class PsmqttApp(object):
     default_config = os.path.join(module_path, 'psmqtt.conf')
     CONFIG = os.getenv('PSMQTTCONFIG', default_config)
     mqttc = None
+    LOGLEVEL = os.getenv('LOGLEVEL', 'INFO')
+    logging.basicConfig(
+        level=LOGLEVEL.upper(), format='%(levelname)s: %(message)s')
 
     try:
         cf = Config(CONFIG)
