@@ -2,9 +2,11 @@ import re
 import json
 import fnmatch
 import psutil  # pip install psutil
+from subprocess import Popen, PIPE
 
 
 class CommandHandler:
+
     def __init__(self, name):
         self.name = name
 
@@ -13,6 +15,7 @@ class CommandHandler:
 
 
 class ValueCommandHandler(CommandHandler):
+
     def __init__(self, method_name):
         CommandHandler.__init__(self, method_name)
         self.method = getattr(psutil, method_name)
@@ -28,6 +31,7 @@ class ValueCommandHandler(CommandHandler):
 
 
 class IndexCommandHandler(CommandHandler):
+
     def __init__(self, method_name):
         CommandHandler.__init__(self, method_name)
         self.method = getattr(psutil, method_name)
@@ -49,6 +53,7 @@ class IndexCommandHandler(CommandHandler):
 
 
 class TupleCommandHandler(CommandHandler):
+
     def __init__(self, method_name):
         CommandHandler.__init__(self, method_name)
         self.method = getattr(psutil, method_name)
@@ -71,6 +76,7 @@ class TupleCommandHandler(CommandHandler):
 
 
 class IndexTupleCommandHandler(CommandHandler):
+
     def __init__(self, name):
         CommandHandler.__init__(self, name)
 
@@ -88,7 +94,8 @@ class IndexTupleCommandHandler(CommandHandler):
             raise Exception("Element '" + index_str + "' in '" + params + "' is not supported")
 
         if index < 0 and all_params:
-            raise Exception("Cannot list all elements and parameters at the same '" + params + "' request")
+            raise Exception(
+                "Cannot list all elements and parameters at the same '" + params + "' request")
 
         result = self.get_value()
         if index < 0:
@@ -101,7 +108,8 @@ class IndexTupleCommandHandler(CommandHandler):
                 elif param in result._fields:
                     return getattr(result, param)
                 else:
-                    raise Exception("Parameter '" + param + "' in '" + params + "' is not supported")
+                    raise Exception("Parameter '" + param + "' in '" +
+                                    params + "' is not supported")
             except IndexError:
                 raise Exception("Element #" + str(index) + " is not present")
 
@@ -111,6 +119,7 @@ class IndexTupleCommandHandler(CommandHandler):
 
 
 class IndexOrTotalCommandHandler(CommandHandler):
+
     def __init__(self, name):
         CommandHandler.__init__(self, name)
 
@@ -150,6 +159,7 @@ class IndexOrTotalCommandHandler(CommandHandler):
 
 
 class IndexOrTotalTupleCommandHandler(CommandHandler):
+
     def __init__(self, name):
         CommandHandler.__init__(self, name)
 
@@ -173,7 +183,8 @@ class IndexOrTotalTupleCommandHandler(CommandHandler):
             raise Exception("Element '" + index_str + "' in '" + params + "' is not supported")
 
         if not total and index < 0 and all_params:
-            raise Exception("Cannot list all elements and parameters at the same '" + params + "' request")
+            raise Exception(
+                "Cannot list all elements and parameters at the same '" + params + "' request")
 
         result = self.get_value(total)
         if index < 0:
@@ -194,7 +205,8 @@ class IndexOrTotalTupleCommandHandler(CommandHandler):
                 elif param in result._fields:
                     return getattr(result, param)
                 else:
-                    raise Exception("Parameter '" + param + "' in '" + params + "' is not supported")
+                    raise Exception("Parameter '" + param + "' in '" +
+                                    params + "' is not supported")
             except IndexError:
                 raise Exception("Element #" + str(index) + " is not present")
 
@@ -204,6 +216,7 @@ class IndexOrTotalTupleCommandHandler(CommandHandler):
 
 
 class NameOrTotalTupleCommandHandler(CommandHandler):
+
     def __init__(self, name):
         CommandHandler.__init__(self, name)
 
@@ -225,7 +238,8 @@ class NameOrTotalTupleCommandHandler(CommandHandler):
             total = False
 
         if not total and name is None and all_params:
-            raise Exception("Cannot list all elements and parameters at the same '" + params + "' request")
+            raise Exception(
+                "Cannot list all elements and parameters at the same '" + params + "' request")
 
         result = self.get_value(total)
         if name is None or name == '':
@@ -253,6 +267,7 @@ class NameOrTotalTupleCommandHandler(CommandHandler):
 
 
 class DiskUsageCommandHandler(CommandHandler):
+
     def __init__(self, name):
         CommandHandler.__init__(self, name)
 
@@ -260,7 +275,8 @@ class DiskUsageCommandHandler(CommandHandler):
         param, disk = split(params)
         if disk == '':
             raise Exception("Disk ' in '" + self.name + "' should be specified")
-        disk = disk.replace('|', '/')  # replace slashes with vertical slashes to do not conflict with MQTT topic name
+        # replace slashes with vertical slashes to do not conflict with MQTT topic name
+        disk = disk.replace('|', '/')
 
         tup = self.get_value(disk)
         if param == '*' or param == '*;':
@@ -273,6 +289,28 @@ class DiskUsageCommandHandler(CommandHandler):
     # noinspection PyMethodMayBeStatic
     def get_value(self, disk):
         return psutil.disk_usage(disk)
+
+
+class SystemdServiceStatusHandler(CommandHandler):
+
+    def __init__(self, name):
+        CommandHandler.__init__(self, name)
+
+    def handle(self, params):
+        unit, _ = split(params)
+        return self.get_value(unit)
+
+    def get_value(self, unit):
+        try:
+            p = Popen(['systemctl', '--no-pager',
+                       '--plain', '--no-legend', '--type=service'], stdout=PIPE)
+            output, err = p.communicate()
+            array = output.split()
+            index = array.index('%s.service' % unit)
+            value = array[index + 3]
+            return value
+        except Exception as error:
+            return 'error: %s' % error
 
 
 class ProcessesCommandHandler(CommandHandler):
@@ -303,7 +341,8 @@ class ProcessesCommandHandler(CommandHandler):
         elif self.top_memory_regexp.match(process):
             pid = self.find_process(process, lambda p: p.memory_percent(), True)
         elif self.pid_file_regexp.match(process):
-            pid = self.get_pid_from_file(self.pid_file_regexp.match(process).group(1).replace('|', '/'))
+            pid = self.get_pid_from_file(self.pid_file_regexp.match(
+                process).group(1).replace('|', '/'))
         elif self.name_pattern_regexp.match(process):
             pid = self.get_find_process(self.name_pattern_regexp.match(process).group(1))
         else:
@@ -346,6 +385,7 @@ class ProcessesCommandHandler(CommandHandler):
 
 
 class ProcessCommandHandler:
+
     def __init__(self, name):
         self.name = name
 
@@ -354,6 +394,7 @@ class ProcessCommandHandler:
 
 
 class ProcessPropertiesCommandHandler(ProcessCommandHandler):
+
     def __init__(self, name, join, subproperties):
         ProcessCommandHandler.__init__(self, name)
         self.join = join
@@ -399,6 +440,7 @@ class ProcessPropertiesCommandHandler(ProcessCommandHandler):
 
 
 class ProcessMethodCommandHandler(ProcessCommandHandler):
+
     def __init__(self, name):
         ProcessCommandHandler.__init__(self, name)
         try:
@@ -417,6 +459,7 @@ class ProcessMethodCommandHandler(ProcessCommandHandler):
 
 
 class ProcessMethodIndexCommandHandler(ProcessCommandHandler):
+
     def __init__(self, name):
         ProcessCommandHandler.__init__(self, name)
         try:
@@ -438,6 +481,7 @@ class ProcessMethodIndexCommandHandler(ProcessCommandHandler):
 
 
 class ProcessMethodTupleCommandHandler(ProcessCommandHandler):
+
     def __init__(self, name):
         ProcessCommandHandler.__init__(self, name)
         try:
@@ -479,7 +523,7 @@ handlers = {
                              {"get_value": lambda self, total: psutil.disk_io_counters(perdisk=not total)})('disk_io_counters'),
 
     'net_io_counters': type("NetIOCountersCommandHandler", (NameOrTotalTupleCommandHandler, object),
-                             {"get_value": lambda self, total: psutil.net_io_counters(pernic=not total)})('net_io_counters'),
+                            {"get_value": lambda self, total: psutil.net_io_counters(pernic=not total)})('net_io_counters'),
 
     'processes': ProcessesCommandHandler('processes'),
 
@@ -490,6 +534,8 @@ handlers = {
 
 
     'pids': type("PidsCommandHandler", (IndexCommandHandler, object), {})('pids'),
+
+    'systemd_service_status': SystemdServiceStatusHandler('systemd_service_status')
 }
 
 process_handlers = {
